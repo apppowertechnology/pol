@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLSA GRADE | University Utility Hub</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="logo.png.png" type="image/png">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+</head>
+<body>
+    <!-- Maintenance Mode Screen -->
+    <div id="maintenance-screen" class="maintenance-screen hidden">
+        <img src="logo.png.png" alt="POLSA GRADE">
+        <h1>Under Improvement</h1>
+        <p>POLSA GRADE is currently undergoing maintenance improvements to serve you better. We'll be back online shortly.</p>
+        <div style="margin-top: 20px; color: var(--primary-green);"><i class="fas fa-cog fa-spin fa-2x"></i></div>
+    </div>
+
+    <div id="offline-banner" class="offline-banner hidden">
+        <i class="fas fa-wifi-slash"></i> Offline Mode: Check your connection.
+    </div>
+
+    <nav class="navbar">
+        <div class="logo-area">
+            <img src="logo.png.png" alt="POLSA GRADE LOGO" id="main-logo">
+            <h1>POLSA GRADE</h1>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <!-- Home Section -->
+        <section id="home" class="section active">
+            <!-- Install App Button (Top Right) -->
+            <div id="install-container" class="hidden" style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+                <div class="install-pill-wrapper" onclick="installPWA()">
+                    <button id="install-app-btn" class="install-pill-btn">
+                        <i class="fas fa-shield-check"></i>
+                        <div class="install-text"><span>Install POLSA GRADE App</span><small>Fast • Secure • Mobile Friendly</small></div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="app-grid">
+                <!-- Large Feature Card for Court -->
+                <div id="card-court" class="app-card featured" onclick="showSection('court-section')">
+                    <i class="fas fa-gavel"></i>
+                    <div class="featured-content">
+                        <h3>POLSA Goes To Court</h3>
+                        <p>Access legal proceedings and latest updates in real-time.</p>
+                    </div>
+                </div>
+                
+                <div class="grid-2">
+                    <div id="card-cgpa" class="app-card" onclick="showSection('cgpa-calc')">
+                        <i class="fas fa-graduation-cap"></i>
+                        <h3>CGPA</h3>
+                    </div>
+                    <div id="card-ovulation" class="app-card" onclick="showSection('period-calc')">
+                        <i class="fas fa-calendar-alt"></i>
+                        <h3>Ovulation</h3>
+                    </div>
+                </div>
+                <div id="card-vote" class="app-card" onclick="loadVotingCategories()">
+                    <i class="fas fa-trophy"></i>
+                    <h3>POLSA AWARD</h3>
+                </div>
+                <div class="grid-1" style="margin-top: 10px;">
+                    <div id="card-anonymous" class="app-card featured-anon" onclick="openAnonymousInbox()">
+                        <i class="fas fa-user-secret"></i>
+                        <div class="featured-content">
+                            <h3>Anonymous Messages</h3>
+                            <p>Send and receive secret messages viral-style.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-2" style="margin-top: 20px;">
+                    <div id="card-news" class="app-card" onclick="showSection('news-section')">
+                        <i class="fas fa-newspaper"></i>
+                        <h3>Latest News</h3>
+                    </div>
+                    <div class="app-card share-card" onclick="shareApp()">
+                        <i class="fas fa-paper-plane"></i>
+                        <h3>Share App</h3>
+                    </div>
+                </div>
+
+                <!-- Trust Badge -->
+                <div class="trust-indicator">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Verified PWA • Protected Connection • Secure Application</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- CGPA Calculator Section -->
+        <section id="cgpa-calc" class="section">
+            <div class="card">
+                <h2><i class="fas fa-graduation-cap"></i> Calculator</h2>
+                <div class="student-info">
+                    <input type="text" id="student-name" placeholder="Full Name">
+                    <input type="text" id="department" placeholder="Department">
+                    <div class="grid-2">
+                        <input type="text" id="level" placeholder="Level (e.g. 100)">
+                        <select id="semester">
+                            <option value="First">First Semester</option>
+                            <option value="Second">Second Semester</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="course-list">
+                    <div class="course-row header">
+                        <span>Course Title</span>
+                        <span>Unit</span>
+                        <span>Score</span>
+                    </div>
+                    <!-- Dynamic rows here -->
+                </div>
+                <button class="btn-add" onclick="addCourseRow()"><i class="fas fa-plus"></i> Add Course</button>
+                <div class="actions">
+                    <button class="btn-primary" onclick="calculateCGPA()">Calculate Result</button>
+                </div>
+                <div id="result-display" class="hidden">
+                    <h3 id="final-gpa">GPA: 0.00</h3>
+                    <p id="classification">Class: -</p>
+                    <p id="remark" class="remark"></p>
+                    <div id="qrcode-container" class="qr-box"></div>
+                    <button class="btn-download" id="btn-download-pdf" onclick="generatePDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                    <button class="btn-secondary" id="btn-share" onclick="shareResult()"><i class="fas fa-share-alt"></i> Share Result</button>
+                    <button class="btn-secondary hidden" id="btn-download-qr" onclick="downloadQRCode()"><i class="fas fa-qrcode"></i> Download QR</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Period Calculator Section -->
+        <section id="period-calc" class="section">
+            <div class="card">
+                <h2><i class="fas fa-calendar-alt"></i> Period & Ovulation Tracker</h2>
+                <div class="form-group">
+                    <label>Last Period Date</label>
+                    <input type="date" id="last-period">
+                </div>
+                <div class="form-group">
+                    <label>Average Cycle Length (Days)</label>
+                    <input type="number" id="cycle-length" value="28">
+                </div>
+                <div class="form-group">
+                    <label>Period Duration (Days)</label>
+                    <input type="number" id="period-duration" value="5">
+                </div>
+                <button class="btn-primary" onclick="calculatePeriod()">Track My Cycle</button>
+
+                <div id="period-results" class="hidden results-grid">
+                    <div class="res-card"><h4>Next Period</h4><p id="next-period-val">-</p></div>
+                    <div class="res-card"><h4>Ovulation Day</h4><p id="ovulation-val">-</p></div>
+                    <div class="res-card"><h4>Fertile Window</h4><p id="fertile-val">-</p></div>
+                    <div class="res-card"><h4>Safe Days</h4><p id="safe-val">-</p></div>
+                    <div class="res-card highlight"><h4>Countdown</h4><p id="countdown-val">-</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- POLSA Goes To Court Section -->
+        <section id="court-section" class="section">
+            <div class="court-container">
+                <div class="loader" id="court-loader"><i class="fas fa-spinner fa-spin"></i></div>
+                <iframe src="" id="court-iframe" class="court-iframe" sandbox="allow-scripts allow-forms allow-same-origin" onload="document.getElementById('court-loader').style.display='none'"></iframe>
+            </div>
+        </section>
+
+        <!-- News Section -->
+        <section id="news-section" class="section">
+            <div class="news-main-container">
+                <div class="loader" id="news-loader"><i class="fas fa-spinner fa-spin"></i></div>
+                <div id="news-reader-viewport"></div>
+            </div>
+        </section>
+
+        <!-- Anonymous Inbox Section -->
+        <section id="anonymous-section" class="section">
+            <div class="card">
+                <h2><i class="fas fa-user-secret"></i> My Anonymous Inbox</h2>
+                <div class="anon-link-box">
+                    <p>Share your link to receive secret messages:</p>
+                    <div class="copy-input">
+                        <input type="text" id="anon-share-link" readonly>
+                        <button onclick="copyAnonLink()"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+                <div id="anon-messages-list" class="inbox-container">
+                    <p class="empty-msg">No messages yet. Share your link!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Voting Section -->
+        <section id="voting-section" class="section">
+            <div class="card">
+                <h2><i class="fas fa-poll"></i> POLSA AWARD</h2>
+                <div id="voting-categories-list">
+                    <!-- Categories will be loaded here -->
+                </div>
+                <div id="voting-contestants-list" class="hidden">
+                    <!-- Contestants will be loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Vote Modal -->
+        <div id="vote-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Cast Your Vote</h3>
+                <p>Select the number of votes you wish to cast:</p>
+                <div class="vote-quantity-selector">
+                    <button onclick="decrementVoteQuantity()"><i class="fas fa-minus"></i></button>
+                    <input type="number" id="vote-quantity" value="1" min="1" max="100" onchange="updateVoteAmount()">
+                    <button onclick="incrementVoteQuantity()"><i class="fas fa-plus"></i></button>
+                </div>
+                <p class="total-amount">Total: <span id="total-vote-amount">₦100</span></p>
+                <button class="btn-primary" onclick="submitVotePayment()">Vote Now</button>
+                <button class="btn-secondary" onclick="closeVoteModal()">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Anonymous Send Section (For Visitors) -->
+        <section id="anonymous-send-section" class="section">
+            <div class="card">
+                <h2 id="anon-send-title">Send a Message</h2>
+                <p style="margin-bottom:15px; font-size: 0.9rem; color: #666;">Your identity remains completely hidden.</p>
+                <textarea id="anon-text" placeholder="Write your secret message here..." maxlength="500"></textarea>
+                <div id="anon-moods" class="mood-selector"></div>
+                <button class="btn-primary" id="btn-send-anon" onclick="sendAnonymousMessage()" style="width:100%; margin-top:15px;">Send Message Anonymously</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Anonymous Message Reveal Screen -->
+    <div id="anon-reveal-overlay" class="reveal-overlay hidden">
+        <div class="reveal-container">
+            <div class="reveal-header">
+                <button class="close-reveal" onclick="closeRevealScreen()"><i class="fas fa-times"></i></button>
+                <div class="theme-selectors">
+                    <div class="theme-dot dot-dark" onclick="setAnonTheme('dark')" title="Dark Theme"></div>
+                    <div class="theme-dot dot-green" onclick="setAnonTheme('green')" title="Green Premium"></div>
+                    <div class="theme-dot dot-gradient" onclick="setAnonTheme('gradient')" title="Sunset Gradient"></div>
+                    <div class="theme-dot dot-glass" onclick="setAnonTheme('glass')" title="Glass Mode"></div>
+                </div>
+            </div>
+            
+            <!-- Capture Area for Export -->
+            <div id="anon-capture-area" class="anon-card-canvas anon-theme-green">
+                <div class="canvas-branding">
+                    <img src="logo.png.png" alt="POLSA">
+                    <span>POLSA GRADE ANONYMOUS</span>
+                </div>
+                <div class="canvas-icon"><i class="fas fa-quote-left"></i></div>
+                <div class="canvas-message" id="reveal-text">Someone sent you a secret message...</div>
+                <div class="canvas-footer">
+                    <span id="reveal-date">Oct 12, 2026</span>
+                    <span class="verified-tag"><i class="fas fa-check-circle"></i> Verified</span>
+                </div>
+            </div>
+
+            <div class="reveal-actions">
+                <button class="reveal-btn whatsapp" onclick="shareToWhatsApp()"><i class="fab fa-whatsapp"></i> Share to WhatsApp</button>
+                <button class="reveal-btn download" onclick="downloadAnonImage()"><i class="fas fa-download"></i> Save as Image</button>
+            </div>
+            <p class="reveal-hint">Screenshot or save to post on your story!</p>
+        </div>
+    </div>
+    
+    <!-- WhatsApp Channel Popup -->
+    <div id="whatsapp-popup" class="whatsapp-popup hidden">
+        <div class="whatsapp-popup-content">
+            <div class="whatsapp-header">
+                <i class="fab fa-whatsapp"></i>
+                <h3>Stay Updated With POLSA GRADE</h3>
+            </div>
+            <p>Follow our official WhatsApp Channel for latest updates, announcements, academic tools, and platform improvements.</p>
+            <div class="whatsapp-actions">
+                <button class="btn-follow" onclick="followWhatsApp()">
+                    <i class="fas fa-plus-circle"></i> Follow Channel
+                </button>
+                <button class="btn-ignore" onclick="closeWhatsAppPopup()">Maybe Later</button>
+            </div>
+            <div class="popup-footer-brand">POLSA Official Utility</div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div id="social-icons-list" class="social-icons"></div>
+        <div id="footer-credits-main" class="footer-credits">
+            <p>Developed by App Power Technology</p>
+            <p>Fully powered by DOI</p>
+            <p>&copy; 2026 POLSA GRADE</p>
+            <p><a href="https://wa.me/2349161041419" target="_blank" style="color: inherit; text-decoration: none;"><i class="fab fa-whatsapp"></i> 09161041419</a></p>
+        </div>
+        <div id="secret-trigger" style="opacity: 0.05; cursor: default;">.</div>
+    </footer>
+
+    <!-- Bottom Mobile Navigation -->
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active" onclick="showSection('home')">
+            <i class="fas fa-home"></i><span>Home</span>
+        </a>
+        <a id="nav-cgpa" href="#" class="nav-item" onclick="showSection('cgpa-calc')">
+            <i class="fas fa-graduation-cap"></i><span>CGPA</span>
+        </a>
+        <a id="nav-ovulation" href="#" class="nav-item" onclick="showSection('period-calc')">
+            <i class="fas fa-calendar-alt"></i><span>Ovulation</span>
+        </a>
+        <a id="nav-court" href="#" class="nav-item" onclick="showSection('court-section')">
+            <i class="fas fa-gavel"></i><span>Court</span>
+        </a>
+        <a id="nav-news" href="#" class="nav-item" onclick="showSection('news-section')">
+            <i class="fas fa-newspaper"></i><span>News</span>
+        </a>
+    </nav>
+
+    <script>
+        // Global Check for Feature Access
+        window.addEventListener('load', () => {
+            // Real-time listener for feature flags will be in script.js
+        });
+    </script>
+    <script src="script.js"></script>
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(reg => console.log('Service Worker Registered', reg))
+                .catch(err => console.error('Service Worker Registration Failed', err));
+        }
+    </script>
+</body>
+</html>

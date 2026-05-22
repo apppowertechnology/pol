@@ -1,0 +1,31 @@
+{
+    "name": "POLSA GRADE",
+    "short_name": "POLSA",
+    "id": "com.polsagrade.app",
+    "description": "The ultimate university utility hub. Calculate CGPA, track ovulation, and send anonymous messages securely.",
+    "start_url": "./index.html",
+    "scope": ".",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#006837",
+    "icons": [
+        {
+            "src": "logo.png.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "logo.png.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "categories": ["education", "productivity", "utilities"],
+    "shortcuts": [
+        { "name": "CGPA Calculator", "url": "/index.html#cgpa-calc" }
+    ]
+}

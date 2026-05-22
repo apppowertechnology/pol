@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLSA GRADE Admin Panel</title>
+    <link rel="icon" type="image/png" href="logo.png.png">
+    <link rel="apple-touch-icon" href="logo.png.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        body:not(.authorized) { display: none; }
+        .admin-tab.hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { text-align: left; padding: 12px; color: #888; border-bottom: 1px solid #333; font-size: 0.8rem; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #222; font-size: 0.9rem; }
+        .modern-tr:hover { background: rgba(255,255,255,0.02); }
+    </style>
+</head>
+<body class="admin-theme">
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="logo-area" style="margin-bottom: 30px; padding: 10px;">
+                <img src="logo.png.png" alt="POLSA" style="height: 45px; border-radius: 50%;">
+                <h1 style="color: white; font-size: 1.1rem; margin-left: 10px;">Admin Hub</h1>
+            </div>
+            <nav>
+                <button class="active" onclick="switchAdminTab('stats')"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+                <button onclick="switchAdminTab('notification')"><i class="fas fa-bullhorn"></i> Notification Center</button>
+                <button onclick="switchAdminTab('anonymous')"><i class="fas fa-user-secret"></i> Anonymous Msgs</button>
+                <button onclick="switchAdminTab('academic')"><i class="fas fa-graduation-cap"></i> Academic Data</button>
+                <button onclick="switchAdminTab('stamps')"><i class="fas fa-stamp"></i> Stamps Registry</button>
+                <button onclick="switchAdminTab('voting')"><i class="fas fa-poll"></i> POLSA AWARD</button>
+                <button onclick="switchAdminTab('premium')"><i class="fas fa-credit-card"></i> Payment Controls</button>
+                <button onclick="switchAdminTab('settings')"><i class="fas fa-tools"></i> Platform Settings</button>
+                <button class="logout" onclick="logoutAdmin()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </nav>
+        </aside>
+
+        <main class="admin-content">
+            <!-- Dashboard Tab -->
+            <div id="admin-stats" class="admin-tab">
+                <h2 style="margin-bottom: 20px;">System Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card"><h3>Revenue</h3><p id="stat-revenue">₦0</p></div>
+                    <div class="stat-card"><h3>Success</h3><p id="stat-success">0</p></div>
+                    <div class="stat-card"><h3>Failed</h3><p id="stat-failed">0</p></div>
+                    <div class="stat-card"><h3>Usage</h3><p id="stat-usage">0</p></div>
+                </div>
+
+                <!-- Quick Broadcast (Fully Visible on Dashboard) -->
+                <div class="notif-center-card" style="margin-top: 30px; border-color: var(--light-green);">
+                    <h2><i class="fas fa-paper-plane"></i> Instant Broadcast</h2>
+                    <p style="color: #888; font-size: 0.8rem; margin-bottom: 15px;">Send a real-time popup to all active users.</p>
+                    <div class="notif-form-grid">
+                        <input type="text" id="notif-title-quick" placeholder="Notification Title" class="full-width">
+                        <textarea id="notif-body-quick" placeholder="Enter message body..." class="full-width" style="height: 80px;"></textarea>
+                    </div>
+                    <button class="btn-primary" onclick="document.getElementById('notif-title').value = document.getElementById('notif-title-quick').value; document.getElementById('notif-body').value = document.getElementById('notif-body-quick').value; sendBroadcast();" style="width: 100%;">Send Broadcast Now</button>
+                </div>
+
+                <div class="chart-container" style="margin-bottom: 20px;"><h3>Revenue Trend (30 Days)</h3><canvas id="revenueChart"></canvas></div>
+                <div class="chart-container"><h3>Feature Usage Overview</h3><canvas id="usageChart"></canvas></div>
+            </div>
+
+            <!-- Full Notification Center Tab -->
+            <div id="admin-notification" class="admin-tab hidden">
+                <div class="notif-center-card">
+                    <h2><i class="fas fa-broadcast-tower"></i> Notification Center</h2>
+                    <div class="notif-form-grid">
+                        <div class="form-group">
+                            <label style="color: #aaa; display: block; margin-bottom: 5px;">Title</label>
+                            <input type="text" id="notif-title" placeholder="e.g. Maintenance Update">
+                        </div>
+                        <div class="form-group">
+                            <label style="color: #aaa; display: block; margin-bottom: 5px;">Category</label>
+                            <select id="notif-type" style="background: #222; color: white; border: 1px solid #444;">
+                                <option value="Information">Information</option>
+                                <option value="Announcement">Announcement</option>
+                                <option value="Update">Update</option>
+                                <option value="Warning">Warning</option>
+                                <option value="Promotional">Promotional</option>
+                            </select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label style="color: #aaa; display: block; margin-bottom: 5px;">Message Body</label>
+                            <textarea id="notif-body" placeholder="What would you like to say?"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label style="color: #aaa; display: block; margin-bottom: 5px;">Action Link (Optional)</label>
+                            <input type="text" id="notif-link" placeholder="https://polsagrade.com/news">
+                        </div>
+                    </div>
+                    <button class="btn-primary" onclick="sendBroadcast()" style="width: 100%; font-size: 1rem; padding: 15px;">Send Real-Time Notification</button>
+                    <p style="text-align: center; margin-top: 10px; color: #666; font-size: 0.75rem;">Connected Devices: <span id="total-notif-tokens">0</span></p>
+                </div>
+
+                <div class="notif-center-card">
+                    <h3><i class="fas fa-history"></i> Broadcast History</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Type</th><th>Content</th><th>Date</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="notif-history-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Premium Feature Controls Tab -->
+            <div id="admin-premium" class="admin-tab hidden">
+                <h2 style="margin-bottom: 25px;"><i class="fas fa-credit-card"></i> Payment Controls</h2>
+                <div class="notif-center-card">
+                    <div class="control-item">
+                        <div>
+                            <h3>CGPA Payment Requirement</h3>
+                            <p style="font-size: 0.8rem; color: #888;">When enabled, users must pay ₦200 via Paystack to generate results. Disable to make it free.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-cgpa-payment" onchange="togglePremiumFeature('cgpaPaymentRequired')">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voting Management Tab -->
+            <div id="admin-voting" class="admin-tab hidden">
+                <h2 style="margin-bottom: 25px;"><i class="fas fa-poll"></i> POLSA AWARD</h2>
+
+                <!-- Vote Price Settings Card -->
+                <div class="notif-center-card" style="margin-bottom: 20px; border-left: 5px solid var(--accent); animation: fadeIn 0.5s ease;">
+                    <h3><i class="fas fa-coins"></i> Vote Price Settings</h3>
+                    <p style="color: #888; font-size: 0.8rem; margin-bottom: 15px;">Set the dynamic price per vote. This updates Paystack and UI instantly across the platform.</p>
+                    <div class="form-group">
+                        <label>Price Per Vote (₦)</label>
+                        <input type="number" id="input-vote-price" placeholder="e.g. 100" style="background: #222; color: white; border: 1px solid #444;">
+                    </div>
+                    <button class="btn-primary" onclick="saveVotePrice()" style="width: 100%; margin-top: 10px;">Update Price Instantly</button>
+                </div>
+
+                <!-- Voting Analytics Overview -->
+                <div class="notif-center-card" style="margin-bottom: 20px;">
+                    <h3><i class="fas fa-chart-bar"></i> Voting Analytics</h3>
+                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                        <div class="stat-card"><h3>Total Votes</h3><p id="stat-total-votes">0</p></div>
+                        <div class="stat-card"><h3>Total Revenue</h3><p id="stat-voting-revenue">₦0</p></div>
+                        <div class="stat-card"><h3>Active Categories</h3><p id="stat-active-categories">0</p></div>
+                        <div class="stat-card"><h3>Most Voted</h3><p id="stat-most-voted">N/A</p></div>
+                    </div>
+                </div>
+
+                <!-- Category Management -->
+                <div class="notif-center-card" style="margin-bottom: 20px;">
+                    <h3><i class="fas fa-list-alt"></i> Category Management</h3>
+                    <div class="form-group">
+                        <label>Category Name</label>
+                        <input type="text" id="voting-category-name" placeholder="e.g., Face of the Year">
+                    </div>
+                    <button class="btn-primary" onclick="saveVotingCategory()" style="width: 100%; margin-top: 15px;">Add Category</button>
+
+                    <h4 style="margin-top: 30px; margin-bottom: 15px;">Existing Categories</h4>
+                    <table>
+                        <thead>
+                            <tr><th>Name</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="voting-categories-tbody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Contestant Management -->
+                <div class="notif-center-card">
+                    <h3><i class="fas fa-users"></i> Contestant Management</h3>
+                    <div class="form-group">
+                        <label>Select Category</label>
+                        <select id="contestant-category-select" onchange="loadContestantsForAdmin()">
+                            <option value="">-- Select a Category --</option>
+                            <!-- Categories will be loaded here -->
+                        </select>
+                    </div>
+                    <div id="contestant-form-area" class="hidden">
+                        <div class="form-group">
+                            <label>Contestant Picture</label>
+                            <input type="file" id="contestant-image-upload" accept="image/*" style="margin-bottom: 10px;" onchange="const p = document.getElementById('contestant-img-preview'); if(this.files[0]){ p.src=URL.createObjectURL(this.files[0]); p.classList.remove('hidden'); }">
+                            <img id="contestant-img-preview" class="hidden" style="width: 80px; height: 80px; border-radius: 10px; object-fit: cover; border: 2px solid var(--light-green);">
+                        </div>
+                        <div class="form-group">
+                            <label>Contestant Name</label>
+                            <input type="text" id="contestant-name" placeholder="e.g., Jane Doe">
+                        </div>
+                        <div class="form-group">
+                            <label>Level</label>
+                            <select id="contestant-level">
+                                <option value="100 Level">100 Level</option>
+                                <option value="200 Level">200 Level</option>
+                                <option value="300 Level">300 Level</option>
+                                <option value="400 Level">400 Level</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn-primary" id="btn-upload-contestant" onclick="addContestant()" style="flex: 2;">Upload Contestant</button>
+                            <button class="btn-secondary hidden" id="btn-cancel-contestant-edit" onclick="cancelContestantEdit()" style="flex: 1; border-color: #e74c3c; color: #e74c3c;">Cancel</button>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 30px; margin-bottom: 15px;">Contestants in Selected Category</h4>
+                    <div id="contestants-list-admin"></div>
+                </div>
+            </div>
+
+            <!-- Anonymous Messages Manager -->
+            <div id="admin-anonymous" class="admin-tab hidden">
+                <h2 style="margin-bottom: 20px;"><i class="fas fa-user-secret"></i> Anonymous Messages Manager</h2>
+                <div class="notif-center-card">
+                    <table id="anon-table">
+                        <thead>
+                            <tr><th>Inbox ID</th><th>Message</th><th>Received</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="anon-admin-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Platform Settings Tab -->
+            <div id="admin-settings" class="admin-tab hidden">
+                <h2 style="margin-bottom: 25px;"><i class="fas fa-tools"></i> Platform Settings</h2>
+                
+                <!-- Maintenance Mode Card -->
+                <div class="notif-center-card" style="border-left: 5px solid #e74c3c;">
+                    <div class="control-item" style="background: transparent; padding: 0;">
+                        <div>
+                            <h3 style="color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i> Maintenance Mode</h3>
+                            <p style="font-size: 0.8rem; color: #888;">When enabled, users will see a maintenance screen. Admin remains accessible.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-maintenance" onchange="toggleMaintenanceMode()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-layout">
+                    <div class="settings-column">
+                        <h3>Feature Visibility Controls</h3>
+                        <div class="notif-center-card">
+                            <div id="feature-toggles-container" class="toggle-grid">
+                                <!-- Toggles injected by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-column">
+                        <h3>Platform Analytics</h3>
+                        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="stat-card"><h3>Total Visits</h3><p id="stat-total-visits">0</p></div>
+                            <div class="stat-card"><h3>Most Used</h3><p id="stat-most-used" style="font-size: 1rem;">-</p></div>
+                            <div class="stat-card"><h3>Daily</h3><p id="stat-daily-visits">0</p></div>
+                            <div class="stat-card"><h3>Weekly</h3><p id="stat-weekly-visits">0</p></div>
+                        </div>
+                        <div class="notif-center-card" style="margin-top: 15px;">
+                            <h4>Feature Click Distribution</h4>
+                            <div style="height: 200px;"><canvas id="clicksChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Existing Link Settings Integrated Here -->
+                <div class="notif-center-card" style="margin-top: 20px;">
+                    <h3>Global Resource Links</h3>
+                    <div class="form-group">
+                        <label>Court Proceedings URL</label>
+                        <input type="text" id="input-court-link" placeholder="Enter URL">
+                        <button class="btn-primary" onclick="saveCourtLink()" style="margin-top: 5px;">Update Court Link</button>
+                    </div>
+                    <div class="form-group">
+                        <label>News Source URL</label>
+                        <input type="text" id="input-news-link">
+                        <button class="btn-primary" onclick="saveNewsLink()" style="margin-top: 5px;">Update News Source</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Social Media Sync</label>
+                        <div class="grid-2">
+                            <input type="text" id="social-facebook" placeholder="Facebook">
+                            <input type="text" id="social-instagram" placeholder="Instagram">
+                            <input type="text" id="social-x" placeholder="X (Twitter)">
+                            <input type="text" id="social-whatsapp" placeholder="WhatsApp">
+                        </div>
+                        <button class="btn-primary" onclick="saveSocialLinks()" style="margin-top: 10px;">Save Socials</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Academic Stats Tab -->
+            <div id="admin-academic" class="admin-tab hidden">
+                <h2>Academic Performance</h2>
+                <div class="stats-grid">
+                    <div class="stat-card"><h3>1st Class</h3><p id="stat-first">0</p></div>
+                    <div class="stat-card"><h3>2.1 (Upper)</h3><p id="stat-2-1">0</p></div>
+                    <div class="stat-card"><h3>2.2 (Lower)</h3><p id="stat-2-2">0</p></div>
+                    <div class="stat-card"><h3>3rd/Pass</h3><p id="stat-3rd">0</p></div>
+                    <div class="stat-card"><h3>High Perf.</h3><p id="stat-high-perf">0</p></div>
+                    <div class="stat-card"><h3>Low Perf.</h3><p id="stat-low-perf">0</p></div>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="btn-primary" onclick="exportFirstClassPDF(this)">Export 1st Class PDF</button>
+                    <button class="btn-secondary" onclick="generateOfficialAcademicReport('FULL', this)">Full Academic Report</button>
+                </div>
+            </div>
+
+            <!-- Stamps Registry -->
+            <div id="admin-stamps" class="admin-tab hidden">
+                <h2>Stamps & Verification Registry</h2>
+                <div class="admin-search-bar" style="margin-top: 20px;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-stamps" placeholder="Search by Serial or Name..." onkeyup="filterStamps()">
+                </div>
+                <div class="notif-center-card">
+                    <table>
+                        <thead><tr><th>Serial</th><th>Type</th><th>Subject</th><th>Date</th><th>Actions</th></tr></thead>
+                        <tbody id="stamps-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="admin.js"></script>
+</body>
+</html>
