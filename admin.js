@@ -894,11 +894,15 @@ function loadVotingManagement() {
     db.ref('voting/categories').on('value', snap => {
         const tbody = document.getElementById('voting-categories-tbody');
         const select = document.getElementById('contestant-category-select');
-        if(!tbody || !select) return;
+        const manualSelect = document.getElementById('manual-vote-category-select');
+        if(!tbody || (!select && !manualSelect)) return;
 
         tbody.innerHTML = '';
-        const currentVal = select.value;
-        select.innerHTML = '<option value="">-- Select a Category --</option>';
+        const currentVal = select ? select.value : "";
+        const currentManualVal = manualSelect ? manualSelect.value : "";
+
+        if (select) select.innerHTML = '<option value="">-- Select a Category --</option>';
+        if (manualSelect) manualSelect.innerHTML = '<option value="">-- Select a Category --</option>';
 
         snap.forEach(child => {
             const cat = child.val();
@@ -914,9 +918,12 @@ function loadVotingManagement() {
                     </td>
                 </tr>
             `;
-            select.innerHTML += `<option value="${id}">${cat.name}</option>`;
+            const option = `<option value="${id}">${cat.name}</option>`;
+            if (select) select.innerHTML += option;
+            if (manualSelect) manualSelect.innerHTML += option;
         });
-        select.value = currentVal;
+        if (select) select.value = currentVal;
+        if (manualSelect) manualSelect.value = currentManualVal;
     });
 
     // 2. Voting Stats
@@ -1129,6 +1136,54 @@ async function addContestant() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = 'Upload Contestant';
+    }
+}
+
+// Manual Vote Management Functions
+function loadManualContestants() {
+    const categoryId = document.getElementById('manual-vote-category-select').value;
+    const formArea = document.getElementById('manual-contestant-form-area');
+    const select = document.getElementById('manual-vote-contestant-select');
+
+    if (!categoryId) {
+        formArea.classList.add('hidden');
+        return;
+    }
+
+    formArea.classList.remove('hidden');
+    db.ref(`voting/categories/${categoryId}/contestants`).on('value', snap => {
+        select.innerHTML = '<option value="">-- Select a Contestant --</option>';
+        if (!snap.exists()) return;
+        snap.forEach(child => {
+            select.innerHTML += `<option value="${child.key}">${child.val().name}</option>`;
+        });
+    });
+}
+
+async function addManualVotes() {
+    const categoryId = document.getElementById('manual-vote-category-select').value;
+    const contestantId = document.getElementById('manual-vote-contestant-select').value;
+    const votesToAdd = parseInt(document.getElementById('input-manual-votes').value);
+
+    if (!categoryId || !contestantId || isNaN(votesToAdd) || votesToAdd < 1) {
+        return alert("Please select category, contestant and enter a valid number of votes.");
+    }
+
+    if (!confirm(`Add ${votesToAdd} manual votes to this contestant?`)) return;
+
+    try {
+        const votesRef = db.ref(`voting/categories/${categoryId}/contestants/${contestantId}/votes`);
+        await votesRef.transaction(currentVotes => (currentVotes || 0) + votesToAdd);
+        
+        db.ref('adminLogs').push({
+            action: `Manual Votes: +${votesToAdd} to ${contestantId}`,
+            timestamp: Date.now()
+        });
+
+        alert("Votes updated successfully!");
+        document.getElementById('input-manual-votes').value = '';
+    } catch (err) {
+        alert("Action failed. Please check connection.");
     }
 }
 
