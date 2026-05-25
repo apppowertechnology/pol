@@ -33,6 +33,7 @@
 
     <nav class="navbar">
         <div class="logo-area">
+            <button id="back-nav-btn" class="back-nav-btn hidden" onclick="goBack()"><i class="fas fa-arrow-left"></i></button>
             <img src="logo.png.png" alt="POLSA GRADE LOGO" id="main-logo">
             <h1>POLSA GRADE</h1>
         </div>
@@ -69,6 +70,15 @@
                     <div id="card-ovulation" class="app-card" onclick="showSection('period-calc')">
                         <i class="fas fa-calendar-alt"></i>
                         <h3>Ovulation</h3>
+                    </div>
+                </div>
+                <div class="grid-1" style="margin-top: 10px;">
+                    <div id="card-library" class="app-card featured" style="background: linear-gradient(135deg, #006837, #004d2a); margin-bottom: 10px;" onclick="showSection('library-section'); loadRecentBooks();">
+                        <i class="fas fa-book-reader" style="color: white;"></i>
+                        <div class="featured-content">
+                            <h3>Digital Library</h3>
+                            <p>Browse, search, and read thousands of books for free.</p>
+                        </div>
                     </div>
                 </div>
                 <div id="card-vote" class="app-card" onclick="loadVotingCategories()">
@@ -167,6 +177,32 @@
                     <div class="res-card"><h4>Fertile Window</h4><p id="fertile-val">-</p></div>
                     <div class="res-card"><h4>Safe Days</h4><p id="safe-val">-</p></div>
                     <div class="res-card highlight"><h4>Countdown</h4><p id="countdown-val">-</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Digital Library Section -->
+        <section id="library-section" class="section">
+            <div class="card library-card">
+                <h2><i class="fas fa-book"></i> Digital Library</h2>
+                <div class="library-search-box">
+                    <div class="yt-input-wrapper">
+                        <input type="text" id="library-search-input" class="modern-input" placeholder="Search by title, author, or ISBN...">
+                        <button class="paste-btn" onclick="performLibrarySearch()"><i class="fas fa-search"></i> Search</button>
+                    </div>
+                </div>
+                
+                <div class="library-subjects">
+                    <button class="subject-chip active" onclick="loadBooksBySubject('science')">Science</button>
+                    <button class="subject-chip" onclick="loadBooksBySubject('mathematics')">Math</button>
+                    <button class="subject-chip" onclick="loadBooksBySubject('history')">History</button>
+                    <button class="subject-chip" onclick="loadBooksBySubject('literature')">Literature</button>
+                    <button class="subject-chip" onclick="loadBooksBySubject('computers')">IT</button>
+                </div>
+
+                <div id="library-results-grid" class="library-grid">
+                    <!-- Books dynamic here -->
+                    <div class="library-placeholder">Search for a book to begin exploring.</div>
                 </div>
             </div>
         </section>

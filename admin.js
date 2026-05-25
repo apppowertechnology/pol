@@ -638,6 +638,7 @@ function loadPlatformSettings() {
         { id: 'news', label: 'News Section', icon: 'newspaper' },
         { id: 'anonymous', label: 'Anonymous Messages', icon: 'user-secret' },
         { id: 'court', label: 'Goes To Court', icon: 'gavel' },
+        { id: 'library', label: 'Digital Library', icon: 'book' },
         { id: 'voting', label: 'POLSA AWARD', icon: 'poll' },
         { id: 'installBtn', label: 'Install App Button', icon: 'download' },
         { id: 'notifications', label: 'Push Notifications', icon: 'bell' },

@@ -362,7 +362,41 @@ async function installPWA() {
 let freeCalcUsed = localStorage.getItem('polsa_free_used') === 'true';
 
 // Navigation & Access Control
-function showSection(sectionId) {
+function goBack() {
+    const overlay = document.getElementById('anon-reveal-overlay');
+    if (overlay && !overlay.classList.contains('hidden')) {
+        window.history.back();
+        return;
+    }
+
+    if (window.history.length > 1) {
+        window.history.back();
+    } else {
+        window.location.href = "index.html";
+    }
+}
+
+window.addEventListener('popstate', (event) => {
+    const overlay = document.getElementById('anon-reveal-overlay');
+    if (overlay) overlay.classList.add('hidden');
+
+    const voteModal = document.getElementById('vote-modal');
+    if (voteModal) voteModal.classList.add('hidden');
+
+    if (event.state && event.state.sectionId) {
+        // Handle internal navigation for voting contestants
+        if (event.state.sectionId === 'voting-section' && event.state.subView === 'contestants') {
+            showSection('voting-section', false, false);
+            viewContestants(event.state.categoryId, false);
+        } else {
+            showSection(event.state.sectionId, false);
+        }
+    } else {
+        showSection('home', false);
+    }
+});
+
+function showSection(sectionId, push = true, resetVoting = true) {
     if (sectionId === 'cgpa-calc' && !featureSettings.cgpa) {
         alert("The CGPA Calculator is currently disabled by Admin.");
         return;
@@ -376,6 +410,25 @@ function showSection(sectionId) {
         return;
     }
 
+    if (push) {
+        const hash = sectionId === 'home' ? '' : `#${sectionId}`;
+        history.pushState({ sectionId }, '', window.location.pathname + hash);
+    }
+
+    // Ensure voting view resets to categories unless specifically navigating to contestants
+    if (sectionId === 'voting-section' && resetVoting) {
+        const catList = document.getElementById('voting-categories-list');
+        const conList = document.getElementById('voting-contestants-list');
+        if (catList) catList.classList.remove('hidden');
+        if (conList) conList.classList.add('hidden');
+    }
+
+    const backBtn = document.getElementById('back-nav-btn');
+    if (backBtn) {
+        if (sectionId === 'home') backBtn.classList.add('hidden');
+        else backBtn.classList.remove('hidden');
+    }
+    
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     
@@ -387,6 +440,7 @@ function showSection(sectionId) {
     if (sectionId === 'court-section') trackUsage('court');
     if (sectionId === 'cgpa-calc') trackUsage('cgpa_tool');
     if (sectionId === 'voting-section') trackUsage('voting_tool');
+    if (sectionId === 'library-section') trackUsage('library_tool');
     if (sectionId === 'period-calc') trackUsage('ovulation_tool');
     
     window.scrollTo(0, 0);
@@ -398,6 +452,7 @@ function syncFeatureVisibility() {
         'period': ['card-ovulation', 'nav-ovulation'],
         'news': ['card-news', 'nav-news'],
         'anonymous': ['card-anonymous'],
+        'library': ['card-library'],
         'court': ['card-court', 'nav-court'],
         'voting': ['card-vote'], // New voting card
         'installBtn': ['install-container'], 
@@ -1384,6 +1439,130 @@ function closeWhatsAppPopup() {
         setTimeout(() => popup.classList.add('hidden'), 500);
     }
     localStorage.setItem('polsa_wa_popup_seen', 'true');
+}
+
+// Digital Library Logic
+async function performLibrarySearch() {
+    const input = document.getElementById('library-search-input');
+    const query = input.value.trim();
+    if (!query) return;
+    
+    const grid = document.getElementById('library-results-grid');
+    grid.innerHTML = '<div class="loader"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+
+    try {
+        const response = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20`);
+        if (!response.ok) throw new Error("Search failed");
+        const data = await response.json();
+        displayBooks(data.docs);
+    } catch (err) {
+        grid.innerHTML = '<div class="library-error">Failed to fetch books. Check your connection.</div>';
+    }
+}
+
+async function loadBooksBySubject(subject) {
+    // Update input and trigger search
+    document.getElementById('library-search-input').value = subject;
+    
+    // Update UI chips active state
+    document.querySelectorAll('.subject-chip').forEach(c => {
+        c.classList.remove('active');
+        const chipText = c.innerText.toLowerCase();
+        const subLower = subject.toLowerCase();
+        if (chipText === subLower || 
+           (subLower === 'mathematics' && chipText === 'math') ||
+           (subLower === 'computers' && chipText === 'it')) {
+            c.classList.add('active');
+        }
+    });
+    
+    performLibrarySearch();
+}
+
+function displayBooks(books) {
+    const grid = document.getElementById('library-results-grid');
+    grid.innerHTML = '';
+    
+    if (!books || books.length === 0) {
+        grid.innerHTML = '<div class="library-placeholder">No books found, try another search</div>';
+        return;
+    }
+
+    books.forEach(book => {
+        const coverId = book.cover_i;
+        const workId = (book.key || '').replace('/works/', '');
+        const title = book.title;
+        const author = book.author_name ? book.author_name[0] : 'Unknown Author';
+        
+        const card = document.createElement('div');
+        card.className = 'book-card';
+        card.onclick = () => viewBookDetails(workId, author);
+        card.innerHTML = `
+            <div class="book-cover-wrapper">
+                <img src="${coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : 'https://via.placeholder.com/150x220?text=No+Cover'}" 
+                     onerror="this.src='https://via.placeholder.com/150x220?text=No+Cover'" alt="${title}">
+            </div>
+            <div class="book-info">
+                <h4>${title}</h4>
+                <p>${author}</p>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+async function viewBookDetails(workId, authorName) {
+    const overlay = document.getElementById('anon-reveal-overlay');
+    const container = document.querySelector('.reveal-container');
+    container.innerHTML = '<div class="loader" style="position:relative; top:0; left:0; transform:none;"><i class="fas fa-spinner fa-spin"></i> Loading Details...</div>';
+    overlay.classList.remove('hidden');
+    history.pushState({ type: 'overlay' }, '', '#details');
+
+    try {
+        const response = await fetch(`https://openlibrary.org/works/${workId}.json`);
+        if (!response.ok) throw new Error("Details not found");
+        const data = await response.json();
+        
+        let description = "No description available.";
+        if (data.description) {
+            description = typeof data.description === 'string' ? data.description : (data.description.value || description);
+        }
+
+        const subjects = data.subjects ? data.subjects.slice(0, 5).join(', ') : 'N/A';
+        const coverId = data.covers ? data.covers[0] : null;
+
+        container.innerHTML = `
+            <div class="reveal-header">
+                <button class="close-reveal" onclick="closeRevealScreen()"><i class="fas fa-times"></i></button>
+                <h3 style="color:white; font-size:1rem; margin-right:40px;">Book Details</h3>
+            </div>
+            <div class="book-detail-view" style="max-height: 80vh; overflow-y: auto; text-align: left; padding: 10px;">
+                <img src="${coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : 'https://via.placeholder.com/200x300?text=No+Cover'}" 
+                     class="detail-cover" onerror="this.src='https://via.placeholder.com/200x300?text=No+Cover'" style="display: block; margin: 0 auto 20px; border-radius: 10px; width: 150px;">
+                <h2 style="color:white; font-size: 1.4rem; margin-bottom: 5px;">${data.title}</h2>
+                <p style="color:var(--accent); font-weight: bold; margin-bottom: 15px;">By ${authorName}</p>
+                <div class="detail-meta" style="margin-bottom: 15px;">
+                    <span class="mood-tag" style="display: block; width: fit-content;">Subjects: ${subjects}</span>
+                </div>
+                <p class="detail-desc" style="color:white; line-height:1.6; font-size:0.95rem; margin-bottom: 25px;">${description}</p>
+                <div class="reveal-actions">
+                    <button class="reveal-btn download" onclick="closeRevealScreen()"><i class="fas fa-arrow-left"></i> Back to Library</button>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        container.innerHTML = `<div style="color:white; text-align: center; padding: 40px;">Error loading book details. <br><br> <button class="btn-primary" onclick="closeRevealScreen()">Go Back</button></div>`;
+    }
+}
+
+const originalCloseReveal = closeRevealScreen;
+closeRevealScreen = function() {
+    if (window.location.hash === '#details') window.history.back();
+    else originalCloseReveal();
+};
+
+async function loadRecentBooks() {
+    loadBooksBySubject('Education');
 }
 
 // Initialize share check
