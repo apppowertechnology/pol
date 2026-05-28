@@ -24,7 +24,30 @@
         .modern-tr:hover { background: rgba(255,255,255,0.02); }
     </style>
 </head>
-<body class="admin-theme">
+<body class="admin-theme" style="overflow: hidden;">
+    <!-- Advanced Biometric Auth Overlay -->
+    <div id="polsa-auth-overlay" class="auth-gate-overlay">
+        <div class="auth-gate-card">
+            <div class="auth-gate-header">
+                <img src="logo.png.png" alt="POLSA">
+                <h2>Unlock Admin Panel</h2>
+                <p>Security PIN Required</p>
+            </div>
+
+            <div id="pin-auth-view" class="pin-viewport">
+                <div class="pin-display">
+                    <input type="password" id="admin-pin-input" maxlength="6" readonly placeholder="••••••">
+                </div>
+                <div class="pin-pad">
+                    <button onclick="appendPin('1')">1</button><button onclick="appendPin('2')">2</button><button onclick="appendPin('3')">3</button>
+                    <button onclick="appendPin('4')">4</button><button onclick="appendPin('5')">5</button><button onclick="appendPin('6')">6</button>
+                    <button onclick="appendPin('7')">7</button><button onclick="appendPin('8')">8</button><button onclick="appendPin('9')">9</button>
+                    <button onclick="clearPin()"><i class="fas fa-backspace"></i></button><button onclick="appendPin('0')">0</button><button onclick="submitPinAuth()"><i class="fas fa-check-circle"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="admin-layout">
         <aside class="sidebar">
             <div class="logo-area" style="margin-bottom: 30px; padding: 10px;">
@@ -40,6 +63,7 @@
                 <button onclick="switchAdminTab('voting')"><i class="fas fa-poll"></i> POLSA AWARD</button>
                 <button onclick="switchAdminTab('manual-voting')"><i class="fas fa-hand-paper"></i> Manual Vote Mgmt</button>
                 <button onclick="switchAdminTab('premium')"><i class="fas fa-credit-card"></i> Payment Controls</button>
+                <button onclick="switchAdminTab('about')"><i class="fas fa-users"></i> Team Manager</button>
                 <button onclick="switchAdminTab('settings')"><i class="fas fa-tools"></i> Platform Settings</button>
                 <button class="logout" onclick="logoutAdmin()"><i class="fas fa-sign-out-alt"></i> Logout</button>
             </nav>
@@ -128,6 +152,29 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                </div>
+            </div>
+
+            <!-- Biometric Security Tab -->
+            <div id="admin-security" class="admin-tab hidden">
+                <h2 style="margin-bottom: 25px;"><i class="fas fa-user-shield"></i> Biometric Security Settings</h2>
+                <div class="notif-center-card">
+                    <h3>Face Recognition Management</h3>
+                    <p style="color: #888; font-size: 0.85rem; margin-bottom: 20px;">Register your face to enable instant biometric unlocking. Your data is stored as encrypted landmarks locally on this platform.</p>
+                    
+                    <div id="face-reg-status" class="status-badge" style="margin-bottom: 20px;">
+                        <i class="fas fa-info-circle"></i> Checking registration status...
+                    </div>
+
+                    <div class="security-action-grid">
+                        <button class="btn-primary" onclick="startFaceRegistration()"><i class="fas fa-camera"></i> Register / Update Face</button>
+                        <button class="btn-secondary" style="border-color: #e74c3c; color: #e74c3c;" onclick="removeFaceData()"><i class="fas fa-trash"></i> Remove Face Data</button>
+                    </div>
+                </div>
+
+                <div class="notif-center-card" style="margin-top: 20px;">
+                    <h3>Security Logs</h3>
+                    <div id="admin-security-logs" style="font-size: 0.8rem; font-family: monospace; height: 150px; overflow-y: auto; background: #111; padding: 10px; border-radius: 8px;"></div>
                 </div>
             </div>
 
@@ -250,6 +297,25 @@
                         </thead>
                         <tbody id="anon-admin-body"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Team Manager Tab -->
+            <div id="admin-about" class="admin-tab hidden">
+                <h2 style="margin-bottom: 25px;"><i class="fas fa-users"></i> Team & Founder Manager</h2>
+                <div class="notif-center-card">
+                    <h3>Founder Image Control</h3>
+                    <p style="color: #888; font-size: 0.85rem; margin-bottom: 20px;">Upload or update the founder's professional photograph for the TEAM page.</p>
+                    
+                    <div class="form-group">
+                        <label>Current Photo Preview</label>
+                        <div style="margin: 15px 0;">
+                            <img id="admin-founder-preview" src="https://via.placeholder.com/150" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 3px solid var(--light-green);">
+                        </div>
+                        <input type="file" id="input-founder-photo" accept="image/*">
+                    </div>
+                    <button class="btn-primary" onclick="uploadFounderImage()" style="width: 100%;">Update Founder Photo</button>
+                    <button class="btn-secondary" style="border-color: #e74c3c; color: #e74c3c; margin-top: 10px; width: 100%;" onclick="deleteFounderImage()">Delete Founder Photo</button>
                 </div>
             </div>
 

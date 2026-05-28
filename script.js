@@ -397,11 +397,11 @@ window.addEventListener('popstate', (event) => {
 });
 
 function showSection(sectionId, push = true, resetVoting = true) {
-    if (sectionId === 'cgpa-calc' && !featureSettings.cgpa) {
+    if (sectionId === 'cgpa-calc' && featureSettings.cgpa === false) {
         alert("The CGPA Calculator is currently disabled by Admin.");
         return;
     }
-    if (sectionId === 'period-calc' && !featureSettings.period) {
+    if (sectionId === 'period-calc' && featureSettings.period === false) {
         alert("The Period Calculator is currently disabled by Admin.");
         return;
     }
@@ -455,7 +455,7 @@ function syncFeatureVisibility() {
         'library': ['card-library'],
         'court': ['card-court', 'nav-court'],
         'voting': ['card-vote'], // New voting card
-        'installBtn': ['install-container'], 
+        'installBtn': ['install-container'],
         'pdfDownload': ['btn-download-pdf']
     };
 
@@ -1565,8 +1565,203 @@ async function loadRecentBooks() {
     loadBooksBySubject('Education');
 }
 
+// Virtual Number (Foreign Number) System
+let vnState = {
+    countries: [],
+    services: [],
+    selectedCountry: null,
+    selectedService: null,
+    activeOrderId: null,
+    pollInterval: null
+};
+
+// Helper to handle 5SIM API calls via proxy to avoid CORS issues
+async function fetchVN(endpoint, useAuth = false) {
+    const url = `https://5sim.net/v1/${endpoint}`;
+    const headers = { 'Accept': 'application/json' };
+    if (useAuth) headers['Authorization'] = `Bearer ${SIM_API_KEY}`;
+
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&ts=${Date.now()}`;
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error("Network response was not ok");
+    
+    const data = await response.json();
+    return typeof data.contents === 'string' ? JSON.parse(data.contents) : data.contents;
+}
+
+function filterVNCountries() {
+    const query = document.getElementById('vn-country-search').value.toLowerCase();
+    const filtered = vnState.countries.filter(c => c.name.toLowerCase().includes(query));
+    displayVNCountries(filtered);
+}
+
+async function selectVNCountry(countryId) {
+    vnState.selectedCountry = countryId;
+    document.getElementById('vn-country-view').classList.add('hidden');
+    document.getElementById('vn-service-view').classList.remove('hidden');
+    document.getElementById('vn-step-indicator').innerText = `Step 2: Select Service (${countryId.toUpperCase()})`;
+    
+    const grid = document.getElementById('vn-service-grid');
+    grid.innerHTML = '<div class="loader" style="position:relative; transform:none; left:0; top:0; padding:40px;"><i class="fas fa-spinner fa-spin"></i> Fetching Services...</div>';
+
+    try {
+        // Fetch admin-defined prices first
+        const priceSnap = await db.ref(`virtualNumber/pricing/${countryId}`).once('value');
+        const adminPrices = priceSnap.val() || {};
+
+        const products = await fetchVN(`guest/products/${countryId}/any`);
+        
+        vnState.services = Object.entries(products).map(([key, val]) => ({
+            id: key,
+            price: adminPrices[key]?.sellingPrice || (val.Category === 'other' ? 500 : 1000), // Fallback
+            stock: val.Qty
+        })).filter(s => s.stock > 0);
+
+        displayVNServices(vnState.services);
+    } catch (e) { grid.innerHTML = '<p class="error-msg">Failed to load services.</p>'; }
+}
+
+function displayVNServices(list) {
+    const grid = document.getElementById('vn-service-grid');
+    grid.innerHTML = list.map(s => `
+        <div class="vn-item-card service" onclick="payForVN('${s.id}', ${s.price})">
+            <i class="fas fa-mobile-alt service-icon"></i>
+            <h4>${s.id.toUpperCase()}</h4>
+            <div class="vn-price">₦${s.price}</div>
+            <div class="vn-stock">${s.stock} in stock</div>
+        </div>
+    `).join('');
+}
+
+function filterVNServices() {
+    const query = document.getElementById('vn-service-search').value.toLowerCase();
+    const filtered = vnState.services.filter(s => s.id.toLowerCase().includes(query));
+    displayVNServices(filtered);
+}
+
+function payForVN(serviceId, amount) {
+    vnState.selectedService = serviceId;
+    payWithPaystack(`Virtual Number: ${serviceId} (${vnState.selectedCountry})`, amount * 100, () => purchaseVNNumber());
+}
+
+async function purchaseVNNumber() {
+    const grid = document.getElementById('vn-service-view');
+    const otpView = document.getElementById('vn-otp-view');
+    grid.classList.add('hidden');
+    otpView.classList.remove('hidden');
+    document.getElementById('vn-step-indicator').innerText = `Step 3: Receive OTP`;
+
+    try {
+        const res = await fetch(`https://5sim.net/v1/user/buy/activation/${vnState.selectedCountry}/any/${vnState.selectedService}`, {
+            headers: { 'Authorization': `Bearer ${SIM_API_KEY}`, 'Accept': 'application/json' }
+        });
+        const order = await res.json();
+        if (order.id) {
+            vnState.activeOrderId = order.id;
+            document.getElementById('vn-active-number').innerText = order.phone;
+            startOTPPooling(order.id);
+            trackUsage('vn_purchase_success');
+        }
+    } catch (e) { alert("API Error: Numbers currently unavailable."); backToCountries(); }
+}
+
+function startOTPPooling(orderId) {
+    let seconds = 0;
+    if (vnState.pollInterval) clearInterval(vnState.pollInterval);
+    
+    vnState.pollInterval = setInterval(async () => {
+        seconds += 5;
+        const timerEl = document.getElementById('otp-timer');
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        timerEl.innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+
+        try {
+            const res = await fetch(`https://5sim.net/v1/user/check/${orderId}`, {
+                headers: { 'Authorization': `Bearer ${SIM_API_KEY}` }
+            });
+            const data = await res.json();
+            
+            if (data.sms && data.sms.length > 0) {
+                const otp = data.sms[0].code;
+                document.getElementById('otp-result-text').innerText = otp;
+                document.getElementById('otp-result-text').classList.add('success-pop');
+                document.querySelector('.otp-loader p').innerText = "OTP Received Successfully!";
+                document.getElementById('btn-cancel-vn').classList.add('hidden');
+                document.getElementById('btn-finish-vn').classList.remove('hidden');
+                clearInterval(vnState.pollInterval);
+                finishVirtualOrder(true);
+            }
+
+            if (seconds > 600) cancelVirtualOrder(); // 10 min timeout
+        } catch (e) {}
+    }, 5000);
+}
+
+async function cancelVirtualOrder() {
+    if (vnState.activeOrderId) {
+        await fetch(`https://5sim.net/v1/user/cancel/${vnState.activeOrderId}`, {
+            headers: { 'Authorization': `Bearer ${SIM_API_KEY}` }
+        });
+    }
+    clearInterval(vnState.pollInterval);
+    alert("Order cancelled. If you were charged, contact support for a refund.");
+    backToCountries();
+}
+
+async function finishVirtualOrder(auto = false) {
+    if (!auto && !confirm("Finish order? Code will no longer be visible.")) return;
+    
+    if (vnState.activeOrderId) {
+        await fetch(`https://5sim.net/v1/user/finish/${vnState.activeOrderId}`, {
+            headers: { 'Authorization': `Bearer ${SIM_API_KEY}` }
+        });
+    }
+    if (!auto) {
+        clearInterval(vnState.pollInterval);
+        backToCountries();
+    }
+}
+
+function backToCountries() {
+    vnState.activeOrderId = null;
+    document.getElementById('vn-otp-view').classList.add('hidden');
+    document.getElementById('vn-service-view').classList.add('hidden');
+    document.getElementById('vn-country-view').classList.remove('hidden');
+    document.getElementById('vn-step-indicator').innerText = `Step 1: Select Country`;
+}
+
+function copyActiveNumber() {
+    const num = document.getElementById('vn-active-number').innerText;
+    navigator.clipboard.writeText(num);
+    const btn = document.querySelector('.copy-btn');
+    btn.innerHTML = '<i class="fas fa-check"></i> Copied';
+    setTimeout(() => btn.innerHTML = '<i class="fas fa-copy"></i> Copy', 2000);
+}
+
+// Bottom Navigation Scroll Logic
+let lastScrollY = window.scrollY;
+window.addEventListener('scroll', () => {
+    const bottomNav = document.querySelector('.bottom-nav');
+    if (!bottomNav) return;
+
+    if (window.scrollY > lastScrollY && window.scrollY > 100) {
+        // Scrolling Down
+        bottomNav.classList.add('nav-hidden');
+    } else {
+        // Scrolling Up
+        bottomNav.classList.remove('nav-hidden');
+    }
+    lastScrollY = window.scrollY;
+});
+
 // Initialize share check
 window.addEventListener('load', () => {
     checkUrlParameters();
     initWhatsAppPopup();
+
+    // Secret trigger for Admin Panel access
+    document.getElementById('secret-trigger')?.addEventListener('click', () => {
+        window.location.href = 'admin.html';
+    });
 });

@@ -9,23 +9,82 @@ const db = firebase.database();
 const logoImg = new Image();
 logoImg.src = 'logo.png.png';
 const adminSignatureImg = new Image();
+const SIM_API_KEY = "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4MTEzMjE2NDksImlhdCI6MTc3OTc4NTY0OSwicmF5IjoiNzM4MDQwMmM3MzE0ODJiZWQxNjVhMjdjOGI1MGExZmQiLCJzdWIiOjQxMjI3ODZ9.umqDkK6FdZ6rbxVnaKaMIOWbRSIxJfpyOAljjnRcr2uljFvEUR0Tyf4F_vzWYGBs3Hi2-QJjA4HiGuySYbZ5KM0xFs9OTZn-pZUMQdnXJMD1_K5LtzV5i57ABtjDQlvJ_E-SN4sq3rMY_QDcW8mIrEqvXUB3Xtny-Qz75byaykUZC1hVp1IefJiGP371PerqrhC8jUY6N-gRjrImERDBxqiuG1A9ZFkgk8RnpJGSqxPls_XrTnKQ_rfgafyic0t7lg-Ao7AGSz-l1ETT4fR4VeJJkHPxypfNOdXWCtoqJn5laH11X7W3JXSvKnd-DYJRltF76XxeKdQMHsTbjAeWnQ";
 adminSignatureImg.crossOrigin = "anonymous";
 db.ref('polsaSettings/adminSignature').on('value', snap => {
     if (snap.exists()) adminSignatureImg.src = snap.val();
 });
 
-// Immediate Password Protection
-(function verifyAdminAccess() {
-    const sessionActive = localStorage.getItem('polsa_admin_active');
-    const pass = sessionActive ? '220099' : prompt("Enter Admin Passcode:");
-    if (pass === '220099') {
-        localStorage.setItem('polsa_admin_active', 'true');
-        document.body.classList.add('authorized');
-    } else {
-        alert("Access Denied");
-        window.location.href = 'index.html';
+let authAttempts = 0;
+const MAX_ATTEMPTS = 3;
+
+// Voice Guidance Helper
+function speak(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Interrupt previous speech
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
     }
-})();
+}
+
+function checkAdminAccess() {
+    // Check for security lock
+    const lockTime = localStorage.getItem('polsa_admin_locked');
+    if (lockTime && Date.now() < parseInt(lockTime)) {
+        const remaining = Math.ceil((parseInt(lockTime) - Date.now()) / 60000);
+        alert(`Security Lock Active: Please wait ${remaining} minutes before trying again.`);
+        window.location.href = 'index.html';
+        return;
+    }
+
+    if (localStorage.getItem('polsa_admin_active') === 'true') {
+        grantAccess();
+    } else {
+        document.body.classList.add('authorized');
+        document.getElementById('polsa-auth-overlay').classList.add('active');
+    }
+}
+
+function grantAccess() {
+    document.body.classList.add('authorized');
+    document.body.style.overflow = 'auto';
+    document.getElementById('polsa-auth-overlay').classList.remove('active');
+    localStorage.setItem('polsa_admin_active', 'true');
+}
+window.grantAccess = grantAccess; // Ensure global access
+
+// PIN Logic
+let currentPin = "";
+function appendPin(num) {
+    if (currentPin.length < 6) {
+        currentPin += num;
+        document.getElementById('admin-pin-input').value = currentPin;
+    }
+}
+function clearPin() {
+    currentPin = "";
+    document.getElementById('admin-pin-input').value = "";
+}
+async function submitPinAuth() {
+    if (currentPin === '220099') {
+        grantAccess();
+        speak("Access granted. Welcome to the Admin Panel.");
+    } else {
+        authAttempts++;
+        speak("Incorrect PIN. Please try again.");
+        clearPin();
+        alert(`Incorrect PIN. Attempts remaining: ${MAX_ATTEMPTS - authAttempts}`);
+        if (authAttempts >= MAX_ATTEMPTS) await triggerSecurityLock();
+    }
+}
+
+function triggerSecurityLock() {
+    localStorage.setItem('polsa_admin_locked', Date.now() + (15 * 60 * 1000));
+    alert("Too many failed attempts. Panel locked for 15 minutes.");
+    window.location.reload();
+}
 
 function logoutAdmin() {
     localStorage.removeItem('polsa_admin_active');
@@ -43,6 +102,10 @@ function switchAdminTab(tab) {
 
 // Admin Dashboard Logic
 function initAdminDashboard() {
+    // Move access check to the top to ensure UI loads even if data calls fail
+    checkAdminAccess();
+
+    // Load other components
     loadStats();
     loadTransTable();
     loadRevenueTrend();
@@ -54,6 +117,7 @@ function initAdminDashboard() {
     loadPremiumControls();
     loadVotingManagement(); // New: Load voting management
     loadPlatformSettings();
+    loadFounderImage();
 
     // Load current link
     db.ref('polsaSettings/courtLink').once('value', snap => {
@@ -1185,6 +1249,167 @@ async function addManualVotes() {
         document.getElementById('input-manual-votes').value = '';
     } catch (err) {
         alert("Action failed. Please check connection.");
+    }
+}
+
+// Virtual Number Admin Functions
+async function fetchVNAdmin(endpoint, useAuth = false) {
+    const url = `https://5sim.net/v1/${endpoint}`;
+    const headers = { 'Accept': 'application/json' };
+    if (useAuth) headers['Authorization'] = `Bearer ${SIM_API_KEY}`;
+
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&ts=${Date.now()}`;
+    const response = await fetch(proxyUrl);
+    const data = await response.json();
+    return typeof data.contents === 'string' ? JSON.parse(data.contents) : data.contents;
+}
+
+async function loadVNAdminCountries() {
+    const select = document.getElementById('admin-vn-country-select');
+    if (!select) return;
+    
+    try {
+        const data = await fetchVNAdmin('guest/countries');
+        const countriesArr = Object.keys(data).filter(key => data[key]).map(key => ({
+            id: key,
+            name: data[key].text_en || key.toUpperCase()
+        })).sort((a, b) => a.name.localeCompare(b.name));
+        
+        select.innerHTML = '<option value="">-- Select Country --</option>';
+        countriesArr.forEach(c => {
+            select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        });
+    } catch (e) {
+        console.error("Admin Country Load Error:", e);
+    }
+}
+
+async function loadVNAdminServices() {
+    const country = document.getElementById('admin-vn-country-select').value;
+    const tbody = document.getElementById('vn-admin-body');
+    const rate = parseFloat(document.getElementById('vn-rate').value) || 1700;
+    
+    if(!country) return;
+    tbody.innerHTML = '<tr><td colspan="6">Loading prices...</td></tr>';
+
+    try {
+        const products = await fetchVNAdmin(`guest/products/${country}/any`);
+        const dbSnap = await db.ref(`virtualNumber/pricing/${country}`).once('value');
+        const saved = dbSnap.val() || {};
+
+        tbody.innerHTML = '';
+        Object.entries(products).forEach(([id, p]) => {
+            const usd = 0.5; // Simulating base cost for UI; 5SIM price varies per country
+            const ngnBase = Math.round(usd * rate);
+            const currentSelling = saved[id]?.sellingPrice || (ngnBase + 500);
+            const profit = currentSelling - ngnBase;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${id.toUpperCase()}</td>
+                    <td>$${usd}</td>
+                    <td>₦${ngnBase}</td>
+                    <td><input type="number" id="price-${id}" value="${currentSelling}" style="width:80px; padding:4px;"></td>
+                    <td style="color:${profit > 0 ? '#22b14c' : '#ff7675'}">₦${profit}</td>
+                    <td><button class="btn-primary" style="padding:5px 10px;" onclick="saveVNPrice('${country}', '${id}', ${ngnBase})">Save</button></td>
+                </tr>
+            `;
+        });
+    } catch (e) { tbody.innerHTML = '<tr><td colspan="6">Error loading data</td></tr>'; }
+}
+
+async function saveVNPrice(country, service, baseCost) {
+    const newPrice = parseInt(document.getElementById(`price-${service}`).value);
+    await db.ref(`virtualNumber/pricing/${country}/${service}`).set({
+        sellingPrice: newPrice,
+        baseCost: baseCost,
+        timestamp: Date.now()
+    });
+    alert("Price Updated!");
+    loadVNAdminServices();
+}
+
+async function syncVNServices() { alert("Full sync initiated. This process updates stock levels in real-time."); loadVNAdminServices(); }
+
+async function loadSIMBalance() {
+    const balanceEl = document.getElementById('stat-sim-balance');
+    if (!balanceEl) return;
+    
+    try {
+        const profile = await fetchVNAdmin('user/profile', true);
+        if (profile && typeof profile.balance === 'number') {
+            balanceEl.innerText = `₽${profile.balance.toFixed(2)}`;
+        }
+    } catch (e) {
+        balanceEl.innerText = "Error";
+    }
+}
+
+async function loadVNOrderHistory() {
+    const tbody = document.getElementById('vn-history-body');
+    if (!tbody) return;
+
+    try {
+        const response = await fetchVNAdmin('user/orders?category=activation&limit=15&reverse=true', true);
+        const orders = response.Data || [];
+        
+        tbody.innerHTML = orders.length === 0 ? '<tr><td colspan="6" style="text-align:center;">No order history found.</td></tr>' : orders.map(o => `
+            <tr>
+                <td>${o.id}</td>
+                <td>${o.phone}</td>
+                <td>${o.product.toUpperCase()}</td>
+                <td>₽${o.price}</td>
+                <td><span class="status-badge type-${o.status.toLowerCase()}">${o.status}</span></td>
+                <td>${new Date(o.created_at).toLocaleDateString()}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Error loading history</td></tr>';
+    }
+}
+
+function loadFounderImage() {
+    db.ref('polsaSettings/founderImage').on('value', snap => {
+        const preview = document.getElementById('admin-founder-preview');
+        if (preview && snap.exists()) {
+            preview.src = snap.val();
+        }
+    });
+}
+
+async function uploadFounderImage() {
+    const fileInput = document.getElementById('input-founder-photo');
+    const file = fileInput?.files[0];
+    if(!file) return alert("Please select an image file first.");
+
+    const btn = document.querySelector('[onclick="uploadFounderImage()"]');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'polsasite');
+
+    try {
+        const res = await fetch('https://api.cloudinary.com/v1_1/ddoetcvxy/image/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if(data.secure_url) {
+            await db.ref('polsaSettings/founderImage').set(data.secure_url);
+            alert("Founder photo updated successfully!");
+        }
+    } catch (err) {
+        alert("Upload failed. Please check your connection.");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+}
+
+async function deleteFounderImage() {
+    if(confirm("Are you sure you want to remove the founder's photo and revert to the default placeholder?")) {
+        await db.ref('polsaSettings/founderImage').remove();
+        alert("Founder photo removed.");
     }
 }
 

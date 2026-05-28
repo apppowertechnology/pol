@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team & Founder | POLSA GRADE</title>
+    <link rel="icon" href="logo.png.png" type="image/png">
+    <link rel="apple-touch-icon" href="logo.png.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        .team-hero { background: linear-gradient(135deg, #006837, #004d2a); color: white; padding: 80px 5%; text-align: center; border-radius: 0 0 50px 50px; margin-bottom: 40px; animation: fadeIn 0.8s ease; }
+        .team-hero h1 { font-size: 2.5rem; margin-bottom: 15px; letter-spacing: 2px; }
+        .team-hero p { font-size: 1.1rem; opacity: 0.9; font-weight: 300; }
+        
+        .team-section { max-width: 1000px; margin: 0 auto 60px; padding: 0 20px; }
+        .team-card { background: white; border-radius: 30px; padding: 40px; box-shadow: 0 15px 40px rgba(0,0,0,0.05); border: 1px solid rgba(0,104,55,0.05); }
+        .section-title { color: var(--primary-green); font-size: 1.8rem; margin-bottom: 25px; display: flex; align-items: center; gap: 15px; }
+        .section-title i { font-size: 1.5rem; }
+        
+        .founder-layout { display: flex; gap: 40px; align-items: flex-start; }
+        .founder-img-container { flex-shrink: 0; width: 250px; height: 250px; border-radius: 30px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,104,55,0.2); border: 5px solid white; transform: rotate(-3deg); transition: 0.3s; }
+        .founder-img-container:hover { transform: rotate(0deg) scale(1.02); }
+        .founder-img-container img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .desc-text { line-height: 1.8; color: #444; font-size: 1.05rem; }
+        .app-power-banner { background: #121212; color: white; padding: 40px; border-radius: 30px; margin-top: 40px; display: flex; align-items: center; gap: 30px; }
+        .app-power-banner i { font-size: 3rem; color: var(--light-green); }
+        
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 30px; }
+        .service-mini-card { background: #f9fdfa; padding: 15px; border-radius: 15px; border: 1px solid #e8f5e9; font-size: 0.9rem; font-weight: 600; color: #333; display: flex; align-items: center; gap: 10px; transition: 0.3s; }
+        .service-mini-card i { color: var(--primary-green); font-size: 1rem; }
+        .service-mini-card:hover { background: white; transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); border-color: var(--primary-green); }
+
+        @media (max-width: 768px) {
+            .founder-layout { flex-direction: column; align-items: center; text-align: center; }
+            .founder-img-container { width: 200px; height: 200px; margin-bottom: 20px; transform: rotate(0); }
+            .app-power-banner { flex-direction: column; text-align: center; }
+            .team-hero h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body style="background: #fcfdfc;">
+    <nav class="navbar">
+        <div class="logo-area">
+            <a href="index.html" class="back-nav-btn"><i class="fas fa-arrow-left"></i></a>
+            <img src="logo.png.png" alt="POLSA">
+            <h1>POLSA GRADE</h1>
+        </div>
+    </nav>
+
+    <header class="team-hero">
+        <h1>TEAM POLSA GRADE</h1>
+        <p>Innovating Student Digital Experiences Through Technology</p>
+    </header>
+
+    <div class="team-section">
+        <div class="team-card">
+            <h2 class="section-title"><i class="fas fa-rocket"></i> About POLSA GRADE</h2>
+            <p class="desc-text">
+                POLSA GRADE is an innovative academic and student utility platform created to simplify student life through technology and digital solutions. 
+                The platform was developed to help students calculate and manage their CGPA efficiently while also providing modern student-focused tools and smart campus-centered digital features.
+                <br><br>
+                POLSA GRADE continues to evolve into a growing digital ecosystem focused on accessibility, innovation, student engagement, and technology-driven solutions.
+            </p>
+        </div>
+    </div>
+
+    <div class="team-section">
+        <div class="team-card">
+            <h2 class="section-title"><i class="fas fa-user-tie"></i> Founder of POLSA GRADE</h2>
+            <div class="founder-layout">
+                <div class="founder-img-container">
+                    <img id="founder-photo" src="logo.png.png" alt="Nwigwe Goodness">
+                </div>
+                <div class="founder-info">
+                    <h3 style="font-size: 1.6rem; color: #111; margin-bottom: 10px;">Nwigwe Goodness</h3>
+                    <p class="desc-text">
+                        Nwigwe Goodness is a student of Alvan Ikoku Federal University of Education, Department of Political Science. He currently serves as the Director of Information in his department and is passionate about technology, innovation, digital transformation, and student development.
+                        <br><br>
+                        As a software developer and creative innovator, he came up with the idea of POLSA GRADE to help students solve one of the common academic challenges of calculating and managing their CGPA efficiently.
+                        <br><br>
+                        His vision was not only to create a CGPA calculator but also to build a broader digital platform with modern features that improve student accessibility, engagement, awareness, and overall digital experience.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="team-section">
+        <div class="app-power-banner">
+            <i class="fas fa-bolt"></i>
+            <div>
+                <h2 style="margin-bottom: 10px;">APP POWER TECHNOLOGY</h2>
+                <p style="opacity: 0.8; line-height: 1.6;">
+                    In addition to building POLSA GRADE, Nwigwe Goodness also founded a growing technology startup known as APP POWER TECHNOLOGY. 
+                    It is an innovation-driven digital startup focused on creating modern technology solutions, creative digital services, and smart web-based systems.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="team-section">
+        <div class="team-card">
+            <h2 class="section-title"><i class="fas fa-layer-group"></i> Services & Specializations</h2>
+            <div class="services-grid" id="services-container"></div>
+        </div>
+    </div>
+
+    <div class="team-section">
+        <div class="team-card" style="background: var(--primary-green); color: white;">
+            <h2 class="section-title" style="color: white;"><i class="fas fa-lightbulb"></i> Vision & Innovation</h2>
+            <p class="desc-text" style="color: rgba(255,255,255,0.9);">
+                The vision behind POLSA GRADE and APP POWER TECHNOLOGY is to continue building innovative digital solutions that positively impact students, educational communities, businesses, and organizations through creativity, technology, and modern development systems.
+                <br><br>
+                The mission is to simplify digital experiences, solve real-world problems, and create professional platforms that combine innovation, simplicity, accessibility, and functionality.
+            </p>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-credits">
+            <p>Developed by App Power Technology</p>
+            <p>&copy; 2026 POLSA GRADE</p>
+        </div>
+    </footer>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://polsa-e6958-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Dynamic Founder Photo
+        db.ref('polsaSettings/founderImage').on('value', snap => {
+            if(snap.exists()) document.getElementById('founder-photo').src = snap.val();
+        });
+
+        // Services Rendering
+        const services = [
+            "Web Development", "Frontend Development", "Backend Development", "Full Stack Development",
+            "Graphics Design", "UI/UX Design", "Branding & Identity", "Responsive Websites",
+            "Admin Dashboards", "Web Applications", "Student Tech Solutions", "Digital Products",
+            "Poster & Flyer Design", "Social Media Branding", "Portfolio Websites", "Business Websites",
+            "Campus Tech", "Creative Tech Services", "Digital Innovation", "Web App Systems"
+        ];
+        
+        document.getElementById('services-container').innerHTML = services.map(s => `
+            <div class="service-mini-card">
+                <i class="fas fa-check-circle"></i> ${s}
+            </div>
+        `).join('');
+    </script>
+</body>
+</html>
