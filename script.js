@@ -9,6 +9,8 @@ const db = firebase.database();
 let featureSettings = {};
 let currentCourses = [];
 const logoImg = new Image();
+let currentVault = null;
+let vaultMedia = [];
 logoImg.src = 'logo.png.png';
 
 // Voting Price State
@@ -442,6 +444,7 @@ function showSection(sectionId, push = true, resetVoting = true) {
     if (sectionId === 'voting-section') trackUsage('voting_tool');
     if (sectionId === 'library-section') trackUsage('library_tool');
     if (sectionId === 'period-calc') trackUsage('ovulation_tool');
+    if (sectionId === 'hideme-section') trackUsage('hideme_tool');
     
     window.scrollTo(0, 0);
 }
@@ -456,7 +459,8 @@ function syncFeatureVisibility() {
         'court': ['card-court', 'nav-court'],
         'voting': ['card-vote'], // New voting card
         'installBtn': ['install-container'],
-        'pdfDownload': ['btn-download-pdf']
+        'pdfDownload': ['btn-download-pdf'],
+        'hideme': ['card-hideme']
     };
 
     Object.keys(map).forEach(key => {
@@ -1565,6 +1569,322 @@ async function loadRecentBooks() {
     loadBooksBySubject('Education');
 }
 
+// Hide Me (Secure Vault) Logic
+async function initHideMe() {
+    showSection('hideme-section');
+    currentVault = null;
+    vaultMedia = [];
+    document.getElementById('vault-auth-view').classList.remove('hidden');
+    document.getElementById('vault-dashboard').classList.add('hidden');
+    document.getElementById('vault-password-display').classList.add('hidden');
+    document.getElementById('vault-error-msg').classList.add('hidden');
+    document.getElementById('vault-password-input').value = '';
+    document.getElementById('btn-vault-auth').innerText = 'Unlock Vault';
+}
+
+async function handleVaultAuth() {
+    const input = document.getElementById('vault-password-input');
+    const errorEl = document.getElementById('vault-error-msg');
+    const btn = document.getElementById('btn-vault-auth');
+    const password = input.value.trim();
+    
+    errorEl.classList.add('hidden');
+
+    if (password.length < 4) {
+        showVaultError("Password too short.");
+        return;
+    }
+
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+
+    try {
+        const vaultId = await generateVaultFingerprint(password);
+        const snap = await db.ref(`polsa_vaults/${vaultId}`).once('value');
+
+        if (!snap.exists()) {
+            showVaultError("Invalid Vault Password");
+        } else {
+            const vault = snap.val();
+            
+            // Use non-blocking async compare to keep UI smooth on mobile
+            const isValid = await new Promise((resolve) => {
+                dcodeIO.bcrypt.compare(password, vault.passwordHash, (err, res) => {
+                    resolve(res);
+                });
+            });
+
+            if (isValid) {
+                openVault(vaultId);
+            } else {
+                showVaultError("Incorrect Password");
+            }
+        }
+    } catch (e) {
+        showVaultError("Connection Error. Try again.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    }
+}
+
+function showVaultError(msg) {
+    const errorEl = document.getElementById('vault-error-msg');
+    errorEl.innerText = msg;
+    errorEl.classList.remove('hidden');
+    errorEl.style.animation = 'none';
+    errorEl.offsetHeight; // trigger reflow
+    errorEl.style.animation = null;
+}
+
+function toggleVaultPasswordVisibility() {
+    const input = document.getElementById('vault-password-input');
+    const icon = document.getElementById('toggle-vault-pass');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+}
+
+async function generateVaultFingerprint(password) {
+    const msgUint8 = new TextEncoder().encode(password.trim() + "polsa_salt");
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function generateNewVault() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const genPart = () => Array.from({length: 4}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+    const newPass = `HM-${genPart()}-${genPart()}-${genPart()}`;
+    
+    const vaultId = await generateVaultFingerprint(newPass);
+    const salt = dcodeIO.bcrypt.genSaltSync(10);
+    const hash = dcodeIO.bcrypt.hashSync(newPass, salt);
+
+    await db.ref(`polsa_vaults/${vaultId}`).set({
+        passwordHash: hash,
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        media: {}
+    });
+
+    document.getElementById('generated-pass-text').innerText = newPass;
+    document.getElementById('vault-auth-view').classList.add('hidden');
+    document.getElementById('vault-password-display').classList.remove('hidden');
+}
+
+function copyVaultPassword() {
+    const pass = document.getElementById('generated-pass-text').innerText;
+    navigator.clipboard.writeText(pass);
+    alert("Vault password copied to clipboard! Keep it safe.");
+}
+
+async function proceedToVaultAfterGen() {
+    const pass = document.getElementById('generated-pass-text').innerText;
+    const vaultId = await generateVaultFingerprint(pass);
+    openVault(vaultId);
+}
+
+function openVault(vaultId) {
+    currentVault = vaultId;
+    document.getElementById('vault-auth-view').classList.add('hidden');
+    document.getElementById('vault-password-display').classList.add('hidden');
+    document.getElementById('vault-dashboard').classList.remove('hidden');
+    
+    db.ref(`polsa_vaults/${vaultId}/media`).on('value', snap => {
+        vaultMedia = [];
+        if (snap.exists()) {
+            snap.forEach(child => {
+                vaultMedia.push({ id: child.key, ...child.val() });
+            });
+        }
+        renderVaultGallery();
+    });
+}
+
+function renderVaultGallery(filterType = 'all') {
+    const grid = document.getElementById('vault-gallery-grid');
+    const empty = document.getElementById('vault-empty-state');
+    grid.innerHTML = '';
+    
+    const filtered = filterType === 'all' ? vaultMedia : vaultMedia.filter(m => m.type.startsWith(filterType));
+    document.getElementById('vault-usage-text').innerText = `${vaultMedia.length} items stored`;
+
+    if (filtered.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+
+    filtered.reverse().forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'media-item-card';
+        const isVideo = item.type.startsWith('video');
+        
+        card.innerHTML = `
+            ${isVideo ? `<video src="${item.url}#t=0.5"></video>` : `<img src="${item.url}" loading="lazy">`}
+            <div class="media-badge">${isVideo ? '<i class="fas fa-play"></i>' : '<i class="fas fa-image"></i>'}</div>
+            <div class="media-actions-overlay">
+                <button onclick="viewMedia('${item.url}', '${item.type}')" title="View"><i class="fas fa-expand"></i></button>
+                <button onclick="downloadVaultMedia('${item.id}')" title="Download"><i class="fas fa-download"></i></button>
+                <button onclick="deleteMedia('${item.id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+async function downloadVaultMedia(mediaId) {
+    if (!currentVault) return;
+    const item = vaultMedia.find(m => m.id === mediaId);
+    if (!item) return;
+
+    showPolsaToast('<i class="fas fa-sync fa-spin"></i> Preparing download...', 3000);
+
+    try {
+        // Fetching the file as a Blob hides the source URL and keeps user in-app
+        const response = await fetch(item.url);
+        if (!response.ok) throw new Error("Network response was not ok");
+        
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        // Create a temporary link to trigger the forced download
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        // Forced attachment name
+        a.download = item.name || `HIDEME_${Date.now()}`;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        setTimeout(() => {
+            window.URL.revokeObjectURL(blobUrl);
+            document.body.removeChild(a);
+            showPolsaToast('<i class="fas fa-check-circle" style="color:var(--light-green)"></i> Saved to device', 3000);
+        }, 100);
+
+    } catch (e) {
+        console.error("Download Error:", e);
+        showPolsaToast('<i class="fas fa-exclamation-triangle" style="color:#e74c3c"></i> Download failed', 4000);
+    }
+}
+
+function showPolsaToast(html, duration = 3000) {
+    let toast = document.querySelector('.polsa-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.className = 'polsa-toast';
+        document.body.appendChild(toast);
+    }
+    toast.innerHTML = html;
+    toast.classList.add('active');
+    setTimeout(() => toast.classList.remove('active'), duration);
+}
+
+function triggerVaultUpload() { document.getElementById('vault-file-input').click(); }
+
+async function handleVaultUpload(input) {
+    const file = input.files[0];
+    if (!file || !currentVault) return;
+
+    const loader = document.createElement('div');
+    loader.className = 'loader';
+    loader.style.display = 'flex';
+    loader.style.flexDirection = 'column';
+    loader.style.alignItems = 'center';
+    loader.innerHTML = `
+        <i class="fas fa-spinner fa-spin"></i> 
+        <span id="vault-upload-status" style="font-size: 1rem; margin-top: 10px;">Preparing...</span>
+        <div class="progress-bar-bg" style="width: 200px; margin-top: 10px;">
+            <div id="vault-upload-progress" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+    `;
+    document.getElementById('vault-dashboard').appendChild(loader);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'polsasite'); // Using existing preset
+
+    try {
+        const resourceType = file.type.startsWith('video') ? 'video' : 'image';
+        const url = `https://api.cloudinary.com/v1_1/ddoetcvxy/${resourceType}/upload`;
+
+        const data = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', url);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    const progressFill = document.getElementById('vault-upload-progress');
+                    const statusText = document.getElementById('vault-upload-status');
+                    if (progressFill) progressFill.style.width = percent + '%';
+                    if (statusText) statusText.innerText = `Uploading: ${percent}%`;
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(JSON.parse(xhr.responseText));
+                } else {
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        reject(new Error(err.error?.message || "Cloudinary upload failed"));
+                    } catch (e) {
+                        reject(new Error("Cloudinary upload failed with status " + xhr.status));
+                    }
+                }
+            };
+
+            xhr.onerror = () => reject(new Error("Network error during upload"));
+            xhr.send(formData);
+        });
+        
+        if (data.secure_url) {
+            await db.ref(`polsa_vaults/${currentVault}/media`).push({
+                url: data.secure_url,
+                type: file.type,
+                name: file.name,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+    } catch (e) {
+        console.error("Vault Upload Error:", e);
+        alert("Upload failed: " + e.message);
+    } finally {
+        loader.remove();
+        input.value = '';
+    }
+}
+
+function deleteMedia(mediaId) {
+    if (confirm("Permanently delete this item from your secure vault?")) {
+        db.ref(`polsa_vaults/${currentVault}/media/${mediaId}`).remove();
+    }
+}
+
+function viewMedia(url, type) {
+    const container = document.querySelector('.reveal-container');
+    container.innerHTML = `
+        <div class="reveal-header"><button class="close-reveal" onclick="closeRevealScreen()"><i class="fas fa-times"></i></button></div>
+        ${type.startsWith('video') ? `<video src="${url}" controls autoplay class="vault-modal-viewer"></video>` : `<img src="${url}" class="vault-modal-viewer">`}
+    `;
+    document.getElementById('anon-reveal-overlay').classList.remove('hidden');
+}
+
+function filterVault(type) {
+    document.querySelectorAll('#vault-dashboard .subject-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.innerText.toLowerCase().includes(type));
+    });
+    renderVaultGallery(type);
+}
+
 // Virtual Number (Foreign Number) System
 let vnState = {
     countries: [],
@@ -1763,5 +2083,10 @@ window.addEventListener('load', () => {
     // Secret trigger for Admin Panel access
     document.getElementById('secret-trigger')?.addEventListener('click', () => {
         window.location.href = 'admin.html';
+    });
+
+    // Add Enter key listener for Vault
+    document.getElementById('vault-password-input')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleVaultAuth();
     });
 });

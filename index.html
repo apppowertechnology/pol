@@ -12,6 +12,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="logo.png.png" type="image/png">
     <!-- Firebase SDK -->
@@ -79,6 +80,13 @@
                             <h3>Digital Library</h3>
                             <p>Browse, search, and read thousands of books for free.</p>
                         </div>
+                    </div>
+                </div>
+                <div id="card-hideme" class="app-card featured" style="background: linear-gradient(135deg, #1a1a1a, #006837); margin-top: 10px;" onclick="initHideMe()">
+                    <i class="fas fa-vault" style="color: var(--accent);"></i>
+                    <div class="featured-content">
+                        <h3>Hide Me</h3>
+                        <p>Secure premium vault to hide your private pictures and videos forever.</p>
                     </div>
                 </div>
                 <div id="card-vote" class="app-card" onclick="loadVotingCategories()">
@@ -277,6 +285,78 @@
                 <textarea id="anon-text" placeholder="Write your secret message here..." maxlength="500"></textarea>
                 <div id="anon-moods" class="mood-selector"></div>
                 <button class="btn-primary" id="btn-send-anon" onclick="sendAnonymousMessage()" style="width:100%; margin-top:15px;">Send Message Anonymously</button>
+            </div>
+        </section>
+
+        <!-- Hide Me Vault Section -->
+        <section id="hideme-section" class="section">
+            <div class="card vault-card">
+                <div id="vault-auth-view">
+                    <div class="vault-auth-header">
+                        <i class="fas fa-shield-halved fa-3x" style="color: var(--primary-green);"></i>
+                        <h2 id="vault-title" style="border:none; margin-top:15px;">Secure Vault Access</h2>
+                        <p id="vault-subtitle">Enter your vault password to continue.</p>
+                    </div>
+                    <div class="form-group" style="margin-top:20px; position: relative;">
+                        <input type="password" id="vault-password-input" class="modern-input" placeholder="Enter Vault Password" style="text-align:center; letter-spacing: 2px;">
+                        <i class="fas fa-eye vault-toggle-eye" id="toggle-vault-pass" onclick="toggleVaultPasswordVisibility()"></i>
+                        <div id="vault-error-msg" class="vault-error hidden">Incorrect Password</div>
+                    </div>
+                    <button class="btn-primary" id="btn-vault-auth" onclick="handleVaultAuth()" style="width:100%;">Unlock Vault</button>
+                    
+                    <div class="vault-gen-option" style="margin-top: 20px; text-align: center;">
+                        <p style="font-size: 0.8rem; color: #777;">Don’t have a vault password?</p>
+                        <button class="btn-link-premium" onclick="generateNewVault()"><i class="fas fa-magic"></i> Generate Secure Password</button>
+                    </div>
+                </div>
+
+                <!-- Password Display View (First time users) -->
+                <div id="vault-password-display" class="hidden">
+                    <div class="vault-auth-header">
+                        <i class="fas fa-key fa-3x" style="color: var(--accent);"></i>
+                        <h2 style="border:none; margin-top:15px;">Your Secure Vault Password</h2>
+                        <p style="font-size: 0.85rem; line-height: 1.4; color: #666; padding: 0 10px;">
+                            Save this password carefully. This is required to reopen your vault. <strong>Losing it may prevent vault recovery.</strong>
+                        </p>
+                    </div>
+                    
+                    <div class="generated-pass-box" id="generated-pass-text">HM-XXXX-XXXX-XXXX</div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                        <button class="btn-secondary" onclick="copyVaultPassword()">
+                            <i class="fas fa-copy"></i> Copy Password
+                        </button>
+                        <button class="btn-primary" onclick="proceedToVaultAfterGen()">
+                            Continue to Vault
+                        </button>
+                    </div>
+                </div>
+
+                <div id="vault-dashboard" class="hidden">
+                    <div class="vault-dash-header">
+                        <div>
+                            <h2 style="border:none; margin:0;"><i class="fas fa-lock-open"></i> Private Vault</h2>
+                            <p style="font-size:0.8rem; color:#666;" id="vault-usage-text">0 items stored</p>
+                        </div>
+                        <button class="btn-primary" onclick="triggerVaultUpload()"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
+                        <input type="file" id="vault-file-input" class="hidden" accept="image/*,video/*" onchange="handleVaultUpload(this)">
+                    </div>
+                    
+                    <div class="vault-filters">
+                        <button class="subject-chip active" onclick="filterVault('all')">All</button>
+                        <button class="subject-chip" onclick="filterVault('image')">Images</button>
+                        <button class="subject-chip" onclick="filterVault('video')">Videos</button>
+                    </div>
+
+                    <div id="vault-gallery-grid" class="library-grid">
+                        <!-- Media items -->
+                    </div>
+
+                    <div id="vault-empty-state" class="library-placeholder hidden">
+                        <i class="fas fa-folder-open fa-3x"></i>
+                        <p>Your vault is empty. Start hiding your media!</p>
+                    </div>
+                </div>
             </div>
         </section>
     </main>

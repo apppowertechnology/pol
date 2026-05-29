@@ -62,6 +62,7 @@
                 <button onclick="switchAdminTab('stamps')"><i class="fas fa-stamp"></i> Stamps Registry</button>
                 <button onclick="switchAdminTab('voting')"><i class="fas fa-poll"></i> POLSA AWARD</button>
                 <button onclick="switchAdminTab('manual-voting')"><i class="fas fa-hand-paper"></i> Manual Vote Mgmt</button>
+                <button onclick="switchAdminTab('hideme')"><i class="fas fa-vault"></i> Hide Me Manager</button>
                 <button onclick="switchAdminTab('premium')"><i class="fas fa-credit-card"></i> Payment Controls</button>
                 <button onclick="switchAdminTab('about')"><i class="fas fa-users"></i> Team Manager</button>
                 <button onclick="switchAdminTab('settings')"><i class="fas fa-tools"></i> Platform Settings</button>
@@ -284,6 +285,21 @@
                         </div>
                         <button class="btn-primary" onclick="addManualVotes()" style="width: 100%; margin-top: 15px;">Add Votes Instantly</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Hide Me Manager Tab -->
+            <div id="admin-hideme" class="admin-tab hidden">
+                <h2 style="margin-bottom: 25px;"><i class="fas fa-vault"></i> Hide Me Manager (Moderation)</h2>
+                <div class="stats-grid">
+                    <div class="stat-card"><h3>Total Vaults</h3><p id="stat-vault-count">0</p></div>
+                    <div class="stat-card"><h3>Total Media</h3><p id="stat-vault-media">0</p></div>
+                </div>
+                <div class="notif-center-card">
+                    <table>
+                        <thead><tr><th>Vault ID Fingerprint</th><th>Items</th><th>Hint</th><th>Actions</th></tr></thead>
+                        <tbody id="hideme-admin-body"></tbody>
+                    </table>
                 </div>
             </div>
 

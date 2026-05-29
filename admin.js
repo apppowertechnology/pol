@@ -116,6 +116,7 @@ function initAdminDashboard() {
     loadNotificationCenter();
     loadPremiumControls();
     loadVotingManagement(); // New: Load voting management
+    loadHideMeManager();
     loadPlatformSettings();
     loadFounderImage();
 
@@ -1249,6 +1250,42 @@ async function addManualVotes() {
         document.getElementById('input-manual-votes').value = '';
     } catch (err) {
         alert("Action failed. Please check connection.");
+    }
+}
+
+// Hide Me Admin Manager
+function loadHideMeManager() {
+    db.ref('polsa_vaults').on('value', snap => {
+        const tbody = document.getElementById('hideme-admin-body');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        let totalMedia = 0;
+        
+        document.getElementById('stat-vault-count').innerText = snap.numChildren();
+        
+        snap.forEach(child => {
+            const vault = child.val();
+            const mediaCount = vault.media ? Object.keys(vault.media).length : 0;
+            totalMedia += mediaCount;
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-family:monospace; font-size:0.7rem;">${child.key.substring(0,16)}...</td>
+                    <td>${mediaCount}</td>
+                    <td style="color:#888;">${vault.hint || 'N/A'}</td>
+                    <td>
+                        <button class="admin-btn-delete" onclick="deleteVault('${child.key}')"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+        document.getElementById('stat-vault-media').innerText = totalMedia;
+    });
+}
+
+async function deleteVault(id) {
+    if(confirm("Permanently delete this entire vault and all its contents?")) {
+        await db.ref(`polsa_vaults/${id}`).remove();
     }
 }
 
